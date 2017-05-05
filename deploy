@@ -1,0 +1,3 @@
+#!/bin/sh
+
+./gradlew build && aws --region us-west-1 lambda update-function-code --zip-file fileb://build/distributions/drilipo-1.0-SNAPSHOT.zip --function-name drilipo
