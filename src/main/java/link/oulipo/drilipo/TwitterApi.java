@@ -8,14 +8,13 @@ import okhttp3.Request;
 import java.io.IOException;
 import java.util.List;
 
-public class Twitter {
-
+public class TwitterApi {
     private final OkHttpClient client;
     private final String usernameAndPassword;
 
     private String bearerToken;
 
-    public Twitter(OkHttpClient client, String usernameAndPassword) {
+    public TwitterApi(OkHttpClient client, String usernameAndPassword) {
         this.client = client;
         this.usernameAndPassword = usernameAndPassword;
     }

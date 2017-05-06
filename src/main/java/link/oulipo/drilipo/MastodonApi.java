@@ -1,8 +1,11 @@
 package link.oulipo.drilipo;
 
+import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonFormat;
-import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.annotation.JsonValue;
+import com.google.common.base.Ascii;
 import com.google.common.base.MoreObjects;
+import okhttp3.FormBody;
 import okhttp3.HttpUrl;
 import okhttp3.OkHttpClient;
 import okhttp3.Request;
@@ -10,13 +13,13 @@ import okhttp3.Request;
 import java.io.IOException;
 import java.time.Instant;
 
-public class Mastodon {
+public class MastodonApi {
     private final OkHttpClient client;
     private final String host;
     private final String token;
     private final HttpUrl baseUrl;
 
-    public Mastodon(OkHttpClient client, String host, String token) {
+    public MastodonApi(OkHttpClient client, String host, String token) {
         this.client = client;
         this.host = host;
         this.token = token;
@@ -44,6 +47,18 @@ public class Mastodon {
                 .build();
         System.out.println(req.url());
         return Json.parse(Account.class, client, req);
+    }
+
+    public Status post(String status, Visibility visibility) throws IOException {
+        Request req = new Request.Builder()
+                .url(baseUrl.newBuilder().addPathSegment("statuses").build())
+                .post(new FormBody.Builder()
+                        .add("status", status)
+                        .add("visibility", visibility.toApi())
+                        .build())
+                .header("Authorization", authHeader())
+                .build();
+        return Json.parse(Status.class, client, req);
     }
 
     private String authHeader() {
@@ -87,5 +102,40 @@ public class Mastodon {
                     .add("header_static", header_static)
                     .toString();
         }
+    }
+
+    public enum Visibility {
+        DIRECT, PRIVATE, UNLISTED, PUBLIC;
+
+        @JsonCreator
+        public static Visibility fromApi(String value) {
+            try {
+                return valueOf(Ascii.toUpperCase(value));
+            } catch (RuntimeException ex) {
+                return null;
+            }
+        }
+
+        @JsonValue
+        public String toApi() {
+            return Ascii.toLowerCase(name());
+        }
+    }
+
+    public static class Status {
+        public long id;
+        public String uri;
+        public HttpUrl url;
+        public Account account;
+        public Long in_reply_to_id;
+        public Long in_reply_to_account_id;
+        public Status reblog;
+        public String content;
+        public @JsonFormat(shape = JsonFormat.Shape.STRING) Instant created_at;
+        public int reblogs_count;
+        public int favourites_count;
+        public boolean sensitive;
+        public String spoiler_text;
+        public Visibility visibility;
     }
 }

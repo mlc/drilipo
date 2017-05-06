@@ -29,12 +29,12 @@ public class DrilipoFunc implements RequestHandler<String, State> {
             .connectionSpecs(ImmutableList.of(ConnectionSpec.MODERN_TLS))
             .addInterceptor(new DrilipoInterceptor())
             .build();
-    private static final Supplier<Twitter> TWITTER = Suppliers.memoizeWithExpiration(
-            Suppliers.compose(creds -> new Twitter(client, creds), getFromKms("TWITTER_CREDS")),
+    private static final Supplier<TwitterApi> TWITTER = Suppliers.memoizeWithExpiration(
+            Suppliers.compose(creds -> new TwitterApi(client, creds), getFromKms("TWITTER_CREDS")),
             1, TimeUnit.HOURS);
     private static final OulipoLinkApi OULIPO_LINK = new OulipoLinkApi(client);
-    private static final Supplier<Mastodon> MASTODON = Suppliers.compose(
-            key -> new Mastodon(client, System.getenv("MASTODON_SERVER"), key), getFromKms("MASTODON_TOKEN"));
+    private static final Supplier<MastodonApi> MASTODON = Suppliers.compose(
+            key -> new MastodonApi(client, System.getenv("MASTODON_SERVER"), key), getFromKms("MASTODON_TOKEN"));
 
     @Override
     public State handleRequest(String input, Context context) {

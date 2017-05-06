@@ -14,7 +14,7 @@ import okio.Buffer;
 import java.io.IOException;
 
 /**
- * Persistant state, stored between invocations.
+ * Persistent state, stored between invocations.
  */
 public class State {
     public long sinceId;
