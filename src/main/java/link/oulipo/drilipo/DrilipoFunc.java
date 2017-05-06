@@ -25,7 +25,7 @@ import java.util.Optional;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Predicate;
 
-public class DrilipoFunc implements RequestHandler<String, State> {
+public class DrilipoFunc implements RequestHandler<Object, State> {
     private static final AWSKMS kms = new AWSKMSClient().withRegion(Regions.US_WEST_1);
     private static final AmazonS3 s3 = new AmazonS3Client().withRegion(Regions.US_WEST_1);
     private static final OkHttpClient client = new OkHttpClient.Builder()
@@ -41,7 +41,7 @@ public class DrilipoFunc implements RequestHandler<String, State> {
             key -> new MastodonApi(client, System.getenv("MASTODON_SERVER"), key), getFromKms("MASTODON_TOKEN"));
 
     @Override
-    public State handleRequest(String input, Context context) {
+    public State handleRequest(Object input, Context context) {
         try {
             State state = State.retrieve(s3);
             findBestTweet(state).ifPresent(best -> {
