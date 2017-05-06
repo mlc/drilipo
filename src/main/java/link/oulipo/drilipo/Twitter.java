@@ -35,13 +35,7 @@ public class Twitter {
                 .header("Authorization", authHeader())
                 .build();
 
-        try (Response resp = client.newCall(req).execute()) {
-            if (!resp.isSuccessful())
-                throw new IOException(resp.code() + " " + resp.message());
-
-            JsonParser jp = Json.parser(resp.body().byteStream());
-            return jp.readValueAs(Tweet.LIST_OF_TWEETS);
-        }
+        return Json.parse(Tweet.LIST_OF_TWEETS, client, req);
     }
 
     private synchronized String authHeader() throws IOException {
@@ -59,12 +53,7 @@ public class Twitter {
                         .build())
                 .header("Authorization", "Basic " + usernameAndPassword)
                 .build();
-        try (Response resp = client.newCall(req).execute()) {
-            if (!resp.isSuccessful())
-                throw new IOException(resp.code() + " " + resp.message());
 
-            JsonParser jp = Json.parser(resp.body().byteStream());
-            return jp.readValueAs(AccessToken.class).access_token;
-        }
+        return Json.parse(AccessToken.class, client, req).access_token;
     }
 }
