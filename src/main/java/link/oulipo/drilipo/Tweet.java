@@ -9,7 +9,7 @@ import java.time.Instant;
 import java.util.List;
 
 public class Tweet {
-    private static HttpUrl TWITTER_BASE = HttpUrl.parse("https://twitter.com/");
+    private static final HttpUrl TWITTER_BASE = HttpUrl.parse("https://twitter.com/");
 
     public static final TypeReference<List<Tweet>> LIST_OF_TWEETS = new TypeReference<List<Tweet>>() {};
 
@@ -41,11 +41,11 @@ public class Tweet {
     }
 
     public static class Entities {
-        List<HashEntity> hashtags;
-        List<HashEntity> symbols;
-        List<UserEntity> user_mentions;
-        List<UrlEntity> urls;
-        List<MediaEntity> media;
+        public List<HashEntity> hashtags;
+        public List<HashEntity> symbols;
+        public List<UserEntity> user_mentions;
+        public List<UrlEntity> urls;
+        public List<MediaEntity> media;
     }
 
     public static class Entity {
