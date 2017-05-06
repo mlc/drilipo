@@ -8,6 +8,8 @@ import com.amazonaws.services.lambda.runtime.Context;
 import com.amazonaws.services.lambda.runtime.RequestHandler;
 import com.amazonaws.services.s3.AmazonS3;
 import com.amazonaws.services.s3.AmazonS3Client;
+import com.amazonaws.services.sns.AmazonSNS;
+import com.amazonaws.services.sns.AmazonSNSClient;
 import com.amazonaws.util.Base64;
 import com.google.common.base.Charsets;
 import com.google.common.base.Supplier;
@@ -18,16 +20,24 @@ import okhttp3.OkHttpClient;
 import okhttp3.Protocol;
 
 import java.io.IOException;
+import java.io.PrintWriter;
+import java.io.StringWriter;
 import java.nio.ByteBuffer;
+import java.time.ZoneId;
+import java.time.ZonedDateTime;
+import java.time.format.DateTimeFormatter;
+import java.time.format.FormatStyle;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Predicate;
+import java.util.stream.Collectors;
 
 public class DrilipoFunc implements RequestHandler<Object, State> {
     private static final AWSKMS kms = new AWSKMSClient().withRegion(Regions.US_WEST_1);
     private static final AmazonS3 s3 = new AmazonS3Client().withRegion(Regions.US_WEST_1);
+    private static final AmazonSNS sns = new AmazonSNSClient().withRegion(Regions.US_WEST_1);
     private static final OkHttpClient client = new OkHttpClient.Builder()
             .protocols(ImmutableList.of(Protocol.HTTP_2, Protocol.HTTP_1_1))
             .connectionSpecs(ImmutableList.of(ConnectionSpec.MODERN_TLS))
@@ -44,11 +54,20 @@ public class DrilipoFunc implements RequestHandler<Object, State> {
     public State handleRequest(Object input, Context context) {
         try {
             State state = State.retrieve(s3);
+            final MastodonApi mastodon = MASTODON.get();
             findBestTweet(state).ifPresent(best -> {
                 context.getLogger().log(String.format("found a post!\n%s\n%s\n", best.text, best.getUrl()));
-                MastodonApi.Status toot = post(best);
+                MastodonApi.Status toot = post(best, mastodon);
                 context.getLogger().log(String.format("toot at %s\n", toot.url));
             });
+            try {
+                readNotifs(mastodon, state);
+            } catch (Exception ex) {
+                StringWriter sw = new StringWriter();
+                sw.write("couln't send notifs\n");
+                ex.printStackTrace(new PrintWriter(sw));
+                context.getLogger().log(sw.toString());
+            }
             state.save(s3);
             return state;
         } catch (IOException ex) {
@@ -56,10 +75,10 @@ public class DrilipoFunc implements RequestHandler<Object, State> {
         }
     }
 
-    public MastodonApi.Status post(Tweet tweet) {
+    public MastodonApi.Status post(Tweet tweet, MastodonApi mastodon) {
         try {
             String status = "“" + tweet.text + "”\n" + OULIPO_LINK.shrink(tweet.getUrl());
-            return MASTODON.get().post(status, MastodonApi.Visibility.PUBLIC);
+            return mastodon.post(status, MastodonApi.Visibility.PUBLIC);
         } catch (IOException ex) {
             throw new RuntimeException(ex);
         }
@@ -102,6 +121,21 @@ public class DrilipoFunc implements RequestHandler<Object, State> {
                 state.maxId = oldTweets.stream().mapToLong(t -> t.id).min().orElseThrow(IllegalStateException::new) - 1L;
             }
         }
+    }
+
+    public void readNotifs(MastodonApi mastodon, State state) throws IOException {
+        List<MastodonApi.Notification> notifications = mastodon.notifications(state.notifsSince);
+        if (notifications.isEmpty())
+            return;
+
+        state.notifsSince = notifications.stream().mapToLong(n -> n.id).max().orElseThrow(IllegalStateException::new);
+
+        final ZoneId est = ZoneId.of("America/New_York");
+        final DateTimeFormatter dtf = DateTimeFormatter.ofLocalizedDateTime(FormatStyle.LONG);
+        String notifText = notifications.stream()
+                .map(n -> ZonedDateTime.ofInstant(n.created_at, est).format(dtf) + "\n" + n.summarize())
+                .collect(Collectors.joining("\n\n"));
+        sns.publish(System.getenv("NOTIFS_ARN"), notifText, "drilipo notifs");
     }
 
     private Predicate<Tweet> isInteresting() {

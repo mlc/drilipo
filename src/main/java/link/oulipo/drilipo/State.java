@@ -19,12 +19,14 @@ import java.io.IOException;
 public class State {
     public long sinceId;
     public long maxId;
+    public long notifsSince;
 
     @Override
     public String toString() {
         return MoreObjects.toStringHelper(this)
                 .add("sinceId", sinceId)
                 .add("maxId", maxId)
+                .add("notifsSince", notifsSince)
                 .toString();
     }
 

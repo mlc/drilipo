@@ -2,7 +2,9 @@ package link.oulipo.drilipo;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonFormat;
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonValue;
+import com.fasterxml.jackson.core.type.TypeReference;
 import com.google.common.base.Ascii;
 import com.google.common.base.MoreObjects;
 import okhttp3.FormBody;
@@ -12,6 +14,7 @@ import okhttp3.Request;
 
 import java.io.IOException;
 import java.time.Instant;
+import java.util.List;
 
 public class MastodonApi {
     private final OkHttpClient client;
@@ -61,6 +64,19 @@ public class MastodonApi {
         return Json.parse(Status.class, client, req);
     }
 
+    public List<Notification> notifications(long sinceId) throws IOException {
+        HttpUrl.Builder url = baseUrl.newBuilder().addPathSegment("notifications");
+        if (sinceId > 0)
+            url.addQueryParameter("since_id", Long.toString(sinceId));
+        url.addQueryParameter("limit", "30");
+        Request req = new Request.Builder()
+                .url(url.build())
+                .get()
+                .header("Authorization", authHeader())
+                .build();
+        return Json.parse(LIST_OF_NOTIFICATIONS, client, req);
+    }
+
     private String authHeader() {
         return "Bearer " + token;
     }
@@ -81,6 +97,14 @@ public class MastodonApi {
         public HttpUrl avatar_static;
         public HttpUrl header;
         public HttpUrl header_static;
+
+        @JsonIgnore
+        public String getName() {
+            if (display_name != null && !"".equals(display_name))
+                return display_name;
+            else
+                return username;
+        }
 
         @Override
         public String toString() {
@@ -137,5 +161,38 @@ public class MastodonApi {
         public boolean sensitive;
         public String spoiler_text;
         public Visibility visibility;
+    }
+
+    public static final TypeReference<List<Notification>> LIST_OF_NOTIFICATIONS = new TypeReference<List<Notification>>() {};
+
+    public static class Notification {
+        public long id;
+        public String type;
+        public @JsonFormat(shape = JsonFormat.Shape.STRING) Instant created_at;
+        public Account account;
+        public Status status;
+
+        public String summarize() {
+            try {
+                switch (type) {
+                    case "mention":
+                        return account.getName() + " says " + status.content + "\n" + status.url;
+
+                    case "reblog":
+                        return "you got a boost from " + account.getName() + "\n" + status.url;
+
+                    case "favourite":
+                        return account.getName() + " put a star on\n" + status.url;
+
+                    case "follow":
+                        return account.getName() + " is now following you\n" + account.url;
+
+                    default:
+                        return "unknown notif kind " + type + " for notif id " + id;
+                }
+            } catch (NullPointerException npe) {
+                return "[couldn't do summary for notif id " + id + "]";
+            }
+        }
     }
 }
