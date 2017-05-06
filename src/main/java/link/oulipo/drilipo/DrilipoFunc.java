@@ -46,12 +46,11 @@ public class DrilipoFunc implements RequestHandler<String, State> {
     public State handleRequest(String input, Context context) {
         try {
             State state = State.retrieve(s3);
-            Tweet best = findBestTweet(state);
-            if (best == null) {
-                context.getLogger().log("no best tweet?");
-            } else {
-                context.getLogger().log(String.format("found a post!\n%s\n%s", best.text, best.getUrl()));
-            }
+            findBestTweet(state).ifPresent(best -> {
+                context.getLogger().log(String.format("found a post!\n%s\n%s\n", best.text, best.getUrl()));
+                MastodonApi.Status toot = post(best);
+                context.getLogger().log(String.format("toot at %s\n", toot.url));
+            });
             state.save(s3);
             return state;
         } catch (IOException ex) {
@@ -59,12 +58,16 @@ public class DrilipoFunc implements RequestHandler<String, State> {
         }
     }
 
-    public MastodonApi.Status post(Tweet tweet) throws IOException {
-        String status = "“" + tweet.text + "” " + OULIPO_LINK.shrink(tweet.getUrl());
-        return MASTODON.get().post(status, MastodonApi.Visibility.PRIVATE);
+    public MastodonApi.Status post(Tweet tweet) {
+        try {
+            String status = "“" + tweet.text + "” " + OULIPO_LINK.shrink(tweet.getUrl());
+            return MASTODON.get().post(status, MastodonApi.Visibility.PRIVATE);
+        } catch (IOException ex) {
+            throw new RuntimeException(ex);
+        }
     }
 
-    public Tweet findBestTweet(State state) throws IOException {
+    public Optional<Tweet> findBestTweet(State state) throws IOException {
         TwitterApi twitterApi = TWITTER.get();
         // If we've run before, and there's a new lipogrammatic tweet available, post it immediately!
         if (state.sinceId > 0) {
@@ -74,7 +77,7 @@ public class DrilipoFunc implements RequestHandler<String, State> {
                     .min(Comparator.comparing(t -> t.id));
             if (hotNewTweet.isPresent()) {
                 state.sinceId = hotNewTweet.get().id;
-                return hotNewTweet.get();
+                return hotNewTweet;
             } else {
                 // update sinceId for next time we're called
                 newTweets.stream().mapToLong(t -> t.id).max().ifPresent(max -> state.sinceId = max);
@@ -86,7 +89,7 @@ public class DrilipoFunc implements RequestHandler<String, State> {
             Long max = state.maxId == 0 ? null : state.maxId;
             List<Tweet> oldTweets = twitterApi.dril(max, null);
             if (oldTweets.isEmpty())
-                return null;
+                return Optional.empty();
 
             if (state.sinceId == 0)
                 state.sinceId = oldTweets.stream().mapToLong(t -> t.id).max().orElseThrow(IllegalStateException::new);
@@ -96,7 +99,7 @@ public class DrilipoFunc implements RequestHandler<String, State> {
                     .max(Comparator.comparing(t -> t.id));
             if (hotOldTweet.isPresent()) {
                 state.maxId = hotOldTweet.get().id - 1L;
-                return hotOldTweet.get();
+                return hotOldTweet;
             } else {
                 state.maxId = oldTweets.stream().mapToLong(t -> t.id).min().orElseThrow(IllegalStateException::new) - 1L;
             }
