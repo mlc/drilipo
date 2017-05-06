@@ -6,6 +6,8 @@ import com.amazonaws.services.kms.AWSKMSClient;
 import com.amazonaws.services.kms.model.DecryptRequest;
 import com.amazonaws.services.lambda.runtime.Context;
 import com.amazonaws.services.lambda.runtime.RequestHandler;
+import com.amazonaws.services.s3.AmazonS3;
+import com.amazonaws.services.s3.AmazonS3Client;
 import com.amazonaws.util.Base64;
 import com.google.common.base.Charsets;
 import com.google.common.base.Supplier;
@@ -21,8 +23,9 @@ import java.util.List;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
-public class DrilipoFunc implements RequestHandler<String, List<String>> {
+public class DrilipoFunc implements RequestHandler<String, State> {
     private static final AWSKMS kms = new AWSKMSClient().withRegion(Regions.US_WEST_1);
+    private static final AmazonS3 s3 = new AmazonS3Client().withRegion(Regions.US_WEST_1);
     private static final OkHttpClient client = new OkHttpClient.Builder()
             .protocols(ImmutableList.of(Protocol.HTTP_2, Protocol.HTTP_1_1))
             .connectionSpecs(ImmutableList.of(ConnectionSpec.MODERN_TLS))
@@ -34,19 +37,24 @@ public class DrilipoFunc implements RequestHandler<String, List<String>> {
     private static final OulipoLinkApi OULIPO_LINK = new OulipoLinkApi(client);
 
     @Override
-    public List<String> handleRequest(String input, Context context) {
+    public State handleRequest(String input, Context context) {
         try {
-            return TWITTER.get().dril(468878821169827839L, null)
-                    .stream()
-                    .filter(t -> t.isLipogrammatic() && t.retweeted_status == null && t.in_reply_to_status_id == null)
-                    .map(t -> {
-                        try {
-                            return t.text + " " + OULIPO_LINK.shrink(t.getUrl());
-                        } catch (IOException e) {
-                            throw new RuntimeException(e);
-                        }
-                    })
-                    .collect(Collectors.toList());
+            State state = State.retrieve(s3);
+            context.getLogger().log("got state " + state);
+            state.maxId++;
+            state.save(s3);
+            return state;
+//            return TWITTER.get().dril(468878821169827839L, null)
+//                    .stream()
+//                    .filter(t -> t.isLipogrammatic() && t.retweeted_status == null && t.in_reply_to_status_id == null)
+//                    .map(t -> {
+//                        try {
+//                            return t.text + " " + OULIPO_LINK.shrink(t.getUrl());
+//                        } catch (IOException e) {
+//                            throw new RuntimeException(e);
+//                        }
+//                    })
+//                    .collect(Collectors.toList());
         } catch (IOException ex) {
             throw new RuntimeException(ex);
         }

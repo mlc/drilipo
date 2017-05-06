@@ -17,6 +17,7 @@ import okio.ByteString;
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.OutputStream;
 
 public class Json {
     private static final JsonFactory jf = new MappingJsonFactory(new ObjectMapper()
@@ -33,11 +34,15 @@ public class Json {
     public static ByteString stringify(Object obj) {
         Buffer buf = new Buffer();
         try {
-            jf.createGenerator(buf.outputStream()).writeObject(obj);
+            stringify(obj, buf.outputStream());
         } catch (IOException ex) {
             throw new RuntimeException(ex);
         }
         return buf.readByteString();
+    }
+
+    public static void stringify(Object obj, OutputStream out) throws IOException {
+        jf.createGenerator(out).writeObject(obj);
     }
 
     public static <T> T parse(Class<T> klass, OkHttpClient client, Request request) throws IOException {
