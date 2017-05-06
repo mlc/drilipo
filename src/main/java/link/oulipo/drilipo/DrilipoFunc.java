@@ -19,7 +19,13 @@ import okhttp3.Protocol;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
+import java.util.Comparator;
+import java.util.List;
+import java.util.Optional;
+import java.util.OptionalLong;
 import java.util.concurrent.TimeUnit;
+import java.util.function.Predicate;
+import java.util.stream.Collectors;
 
 public class DrilipoFunc implements RequestHandler<String, State> {
     private static final AWSKMS kms = new AWSKMSClient().withRegion(Regions.US_WEST_1);
@@ -40,22 +46,65 @@ public class DrilipoFunc implements RequestHandler<String, State> {
     public State handleRequest(String input, Context context) {
         try {
             State state = State.retrieve(s3);
-            context.getLogger().log(MASTODON.get().getCurrentUser().toString());
+            Tweet best = findBestTweet(state);
+            if (best == null) {
+                context.getLogger().log("no best tweet?");
+            } else {
+                context.getLogger().log(String.format("found a post!\n%s\n%s", best.text, best.getUrl()));
+            }
+            state.save(s3);
             return state;
-//            return TWITTER.get().dril(468878821169827839L, null)
-//                    .stream()
-//                    .filter(t -> t.isLipogrammatic() && t.retweeted_status == null && t.in_reply_to_status_id == null)
-//                    .map(t -> {
-//                        try {
-//                            return t.text + " " + OULIPO_LINK.shrink(t.getUrl());
-//                        } catch (IOException e) {
-//                            throw new RuntimeException(e);
-//                        }
-//                    })
-//                    .collect(Collectors.toList());
         } catch (IOException ex) {
             throw new RuntimeException(ex);
         }
+    }
+
+    public MastodonApi.Status post(Tweet tweet) throws IOException {
+        String status = "“" + tweet.text + "” " + OULIPO_LINK.shrink(tweet.getUrl());
+        return MASTODON.get().post(status, MastodonApi.Visibility.PRIVATE);
+    }
+
+    public Tweet findBestTweet(State state) throws IOException {
+        TwitterApi twitterApi = TWITTER.get();
+        // If we've run before, and there's a new lipogrammatic tweet available, post it immediately!
+        if (state.sinceId > 0) {
+            List<Tweet> newTweets = twitterApi.dril(null, state.sinceId);
+            Optional<Tweet> hotNewTweet = newTweets.stream()
+                    .filter(isInteresting())
+                    .min(Comparator.comparing(t -> t.id));
+            if (hotNewTweet.isPresent()) {
+                state.sinceId = hotNewTweet.get().id;
+                return hotNewTweet.get();
+            } else {
+                // update sinceId for next time we're called
+                newTweets.stream().mapToLong(t -> t.id).max().ifPresent(max -> state.sinceId = max);
+            }
+        }
+
+        // otherwise, find the newest old tweet we haven't posted yet
+        while(true) {
+            Long max = state.maxId == 0 ? null : state.maxId;
+            List<Tweet> oldTweets = twitterApi.dril(max, null);
+            if (oldTweets.isEmpty())
+                return null;
+
+            if (state.sinceId == 0)
+                state.sinceId = oldTweets.stream().mapToLong(t -> t.id).max().orElseThrow(IllegalStateException::new);
+
+            Optional<Tweet> hotOldTweet = oldTweets.stream()
+                    .filter(isInteresting())
+                    .max(Comparator.comparing(t -> t.id));
+            if (hotOldTweet.isPresent()) {
+                state.maxId = hotOldTweet.get().id - 1L;
+                return hotOldTweet.get();
+            } else {
+                state.maxId = oldTweets.stream().mapToLong(t -> t.id).min().orElseThrow(IllegalStateException::new) - 1L;
+            }
+        }
+    }
+
+    private Predicate<Tweet> isInteresting() {
+        return t -> t.isLipogrammatic() && t.retweeted_status == null && t.in_reply_to_status_id == null;
     }
 
     private static Supplier<String> getFromKms(String name) {
