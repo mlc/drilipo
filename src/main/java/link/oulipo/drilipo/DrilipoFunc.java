@@ -108,7 +108,7 @@ public class DrilipoFunc implements RequestHandler<String, State> {
 
     private Predicate<Tweet> isInteresting() {
         return t -> t.isLipogrammatic() &&
-                t.entities.media.isEmpty() &&
+                (t.entities == null || t.entities.media == null || t.entities.media.isEmpty()) &&
                 t.retweeted_status == null &&
                 t.in_reply_to_status_id == null;
     }
