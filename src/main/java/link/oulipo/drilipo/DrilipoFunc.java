@@ -33,14 +33,14 @@ public class DrilipoFunc implements RequestHandler<String, State> {
             Suppliers.compose(creds -> new Twitter(client, creds), getFromKms("TWITTER_CREDS")),
             1, TimeUnit.HOURS);
     private static final OulipoLinkApi OULIPO_LINK = new OulipoLinkApi(client);
+    private static final Supplier<Mastodon> MASTODON = Suppliers.compose(
+            key -> new Mastodon(client, System.getenv("MASTODON_SERVER"), key), getFromKms("MASTODON_TOKEN"));
 
     @Override
     public State handleRequest(String input, Context context) {
         try {
             State state = State.retrieve(s3);
-            context.getLogger().log("got state " + state);
-            state.maxId++;
-            state.save(s3);
+            context.getLogger().log(MASTODON.get().getCurrentUser().toString());
             return state;
 //            return TWITTER.get().dril(468878821169827839L, null)
 //                    .stream()
