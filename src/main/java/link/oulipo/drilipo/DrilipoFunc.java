@@ -22,10 +22,8 @@ import java.nio.ByteBuffer;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Optional;
-import java.util.OptionalLong;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Predicate;
-import java.util.stream.Collectors;
 
 public class DrilipoFunc implements RequestHandler<String, State> {
     private static final AWSKMS kms = new AWSKMSClient().withRegion(Regions.US_WEST_1);
@@ -60,8 +58,8 @@ public class DrilipoFunc implements RequestHandler<String, State> {
 
     public MastodonApi.Status post(Tweet tweet) {
         try {
-            String status = "“" + tweet.text + "” " + OULIPO_LINK.shrink(tweet.getUrl());
-            return MASTODON.get().post(status, MastodonApi.Visibility.PRIVATE);
+            String status = "“" + tweet.text + "”\n" + OULIPO_LINK.shrink(tweet.getUrl());
+            return MASTODON.get().post(status, MastodonApi.Visibility.PUBLIC);
         } catch (IOException ex) {
             throw new RuntimeException(ex);
         }
