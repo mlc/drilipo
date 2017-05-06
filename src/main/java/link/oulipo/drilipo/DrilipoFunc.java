@@ -19,9 +19,7 @@ import okhttp3.Protocol;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
-import java.util.List;
 import java.util.concurrent.TimeUnit;
-import java.util.stream.Collectors;
 
 public class DrilipoFunc implements RequestHandler<String, State> {
     private static final AWSKMS kms = new AWSKMSClient().withRegion(Regions.US_WEST_1);

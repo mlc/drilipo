@@ -2,7 +2,6 @@ package link.oulipo.drilipo;
 
 import com.google.common.base.CharMatcher;
 
-import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 // https://github.com/mouse-reeve/mastodon/blob/e00be1cc2a9819607e31f2bd916cef04bf289065/app/lib/oulipo/oulipo.rb

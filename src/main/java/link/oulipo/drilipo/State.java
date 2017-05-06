@@ -2,7 +2,11 @@ package link.oulipo.drilipo;
 
 import com.amazonaws.AmazonServiceException;
 import com.amazonaws.services.s3.AmazonS3;
-import com.amazonaws.services.s3.model.*;
+import com.amazonaws.services.s3.model.GetObjectRequest;
+import com.amazonaws.services.s3.model.ObjectMetadata;
+import com.amazonaws.services.s3.model.PutObjectRequest;
+import com.amazonaws.services.s3.model.S3Object;
+import com.amazonaws.services.s3.model.SSEAwsKeyManagementParams;
 import com.google.common.base.MoreObjects;
 import okhttp3.CacheControl;
 import okio.Buffer;
