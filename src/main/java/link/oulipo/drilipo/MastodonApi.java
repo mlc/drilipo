@@ -11,6 +11,7 @@ import okhttp3.FormBody;
 import okhttp3.HttpUrl;
 import okhttp3.OkHttpClient;
 import okhttp3.Request;
+import org.jsoup.Jsoup;
 
 import java.io.IOException;
 import java.time.Instant;
@@ -161,6 +162,11 @@ public class MastodonApi {
         public boolean sensitive;
         public String spoiler_text;
         public Visibility visibility;
+
+        @JsonIgnore
+        public String text() {
+            return Jsoup.parseBodyFragment(content).text();
+        }
     }
 
     public static final TypeReference<List<Notification>> LIST_OF_NOTIFICATIONS = new TypeReference<List<Notification>>() {};
@@ -176,7 +182,7 @@ public class MastodonApi {
             try {
                 switch (type) {
                     case "mention":
-                        return account.getName() + " says " + status.content + "\n" + status.url;
+                        return account.getName() + " says " + status.text() + "\n" + status.url;
 
                     case "reblog":
                         return "you got a boost from " + account.getName() + "\n" + status.url;
