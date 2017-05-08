@@ -11,7 +11,7 @@ public class Oulipo {
     public static final Pattern MENTION_REGEX = Pattern.compile("@[a-z0-9-]{1,15}");
     public static final Pattern EMOJI_REGEX = Pattern.compile("\\B:[a-zA-Z\\d_]+:\\B");
 
-    private static final Pattern[] SKIP_VALIDATION_REGEXES = {URL_REGEX, MENTION_REGEX, EMOJI_REGEX};
+    private static final Pattern[] SKIP_VALIDATION_REGEXES = {URL_REGEX, EMOJI_REGEX};
 
     public static String tootText(String text) {
         for (Pattern p : SKIP_VALIDATION_REGEXES) {
