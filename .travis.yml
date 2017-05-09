@@ -9,4 +9,6 @@ install:
 
 script:
   - ./gradlew build
+
+after_success:
   - 'if [ "${TRAVIS_PULL_REQUEST}" = "false" ] && [ "${TRAVIS_BRANCH}" = "master" ]; then aws --region us-west-1 lambda update-function-code --zip-file fileb://build/distributions/drilipo-1.0-SNAPSHOT.zip --function-name drilipo; fi'
