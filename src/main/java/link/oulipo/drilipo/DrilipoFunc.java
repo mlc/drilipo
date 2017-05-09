@@ -77,7 +77,7 @@ public class DrilipoFunc implements RequestHandler<Object, State> {
 
     public MastodonApi.Status post(Tweet tweet, MastodonApi mastodon) {
         try {
-            String status = "“" + tweet.text + "”\n" + OULIPO_LINK.shrink(tweet.getUrl());
+            String status = tweet.text + "\n" + OULIPO_LINK.shrink(tweet.getUrl());
             return mastodon.post(status, MastodonApi.Visibility.PUBLIC);
         } catch (IOException ex) {
             throw new RuntimeException(ex);
