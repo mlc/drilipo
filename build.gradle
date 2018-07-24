@@ -27,8 +27,8 @@ dependencyManagement {
 
 dependencies {
     compile 'com.amazonaws:aws-lambda-java-core:1.1.0'
-    compile 'com.squareup.okhttp3:okhttp:3.7.0'
-    compile 'com.google.guava:guava:21.0'
+    compile 'com.squareup.okhttp3:okhttp:3.11.0'
+    compile 'com.google.guava:guava:25.1-jre'
     compile 'com.amazonaws:aws-java-sdk-s3'
     compile 'com.amazonaws:aws-java-sdk-sns'
     compile 'com.fasterxml.jackson.core:jackson-databind:2.8.6'
