@@ -19,7 +19,7 @@ public class OulipoLinkApi {
     public HttpUrl shrink(HttpUrl urlLong) throws IOException {
         OLRequest olRequest = new OLRequest(urlLong);
         Request req = new Request.Builder()
-                .url("https://oulipo.link/create")
+                .url("https://api.oulipo.link/create")
                 .post(RequestBody.create(Json.MIME_TYPE, Json.stringify(olRequest)))
                 .build();
 
