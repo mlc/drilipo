@@ -16,12 +16,12 @@ apply plugin: 'java'
 sourceCompatibility = 1.8
 
 repositories {
-    jcenter()
+    mavenCentral()
 }
 
 dependencyManagement {
     imports {
-        mavenBom 'com.amazonaws:aws-java-sdk-bom:1.10.77'
+        mavenBom 'com.amazonaws:aws-java-sdk-bom:1.11.970'
     }
 }
 
@@ -31,6 +31,7 @@ dependencies {
     implementation 'com.google.guava:guava:25.1-jre'
     implementation 'com.amazonaws:aws-java-sdk-s3'
     implementation 'com.amazonaws:aws-java-sdk-sns'
+    implementation 'com.amazonaws:aws-java-sdk-ssm'
     implementation 'com.fasterxml.jackson.core:jackson-databind:2.8.6'
     implementation 'com.fasterxml.jackson.datatype:jackson-datatype-jsr310:2.8.6'
     implementation 'org.jsoup:jsoup:1.10.2'

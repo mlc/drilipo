@@ -1,17 +1,16 @@
 package link.oulipo.drilipo;
 
 import com.amazonaws.regions.Regions;
-import com.amazonaws.services.kms.AWSKMS;
-import com.amazonaws.services.kms.AWSKMSClient;
-import com.amazonaws.services.kms.model.DecryptRequest;
 import com.amazonaws.services.lambda.runtime.Context;
 import com.amazonaws.services.lambda.runtime.RequestHandler;
 import com.amazonaws.services.s3.AmazonS3;
-import com.amazonaws.services.s3.AmazonS3Client;
+import com.amazonaws.services.s3.AmazonS3ClientBuilder;
+import com.amazonaws.services.simplesystemsmanagement.AWSSimpleSystemsManagement;
+import com.amazonaws.services.simplesystemsmanagement.AWSSimpleSystemsManagementClientBuilder;
+import com.amazonaws.services.simplesystemsmanagement.model.GetParameterRequest;
 import com.amazonaws.services.sns.AmazonSNS;
-import com.amazonaws.services.sns.AmazonSNSClient;
+import com.amazonaws.services.sns.AmazonSNSClientBuilder;
 import com.amazonaws.util.Base64;
-import com.google.common.base.Charsets;
 import com.google.common.base.Supplier;
 import com.google.common.base.Suppliers;
 import com.google.common.collect.ImmutableList;
@@ -22,7 +21,7 @@ import okhttp3.Protocol;
 import java.io.IOException;
 import java.io.PrintWriter;
 import java.io.StringWriter;
-import java.nio.ByteBuffer;
+import java.nio.charset.StandardCharsets;
 import java.time.ZoneId;
 import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
@@ -35,20 +34,20 @@ import java.util.function.Predicate;
 import java.util.stream.Collectors;
 
 public class DrilipoFunc implements RequestHandler<Object, State> {
-    private static final AWSKMS kms = new AWSKMSClient().withRegion(Regions.US_WEST_1);
-    private static final AmazonS3 s3 = new AmazonS3Client().withRegion(Regions.US_WEST_1);
-    private static final AmazonSNS sns = new AmazonSNSClient().withRegion(Regions.US_WEST_1);
+    private static final AmazonS3 s3 = AmazonS3ClientBuilder.standard().withRegion(Regions.US_WEST_1).build();
+    private static final AmazonSNS sns = AmazonSNSClientBuilder.standard().withRegion(Regions.US_WEST_1).build();
+    private static final AWSSimpleSystemsManagement ssm = AWSSimpleSystemsManagementClientBuilder.standard().withRegion(Regions.US_WEST_1).build();
     private static final OkHttpClient client = new OkHttpClient.Builder()
             .protocols(ImmutableList.of(Protocol.HTTP_2, Protocol.HTTP_1_1))
             .connectionSpecs(ImmutableList.of(ConnectionSpec.MODERN_TLS))
             .addInterceptor(new DrilipoInterceptor())
             .build();
     private static final Supplier<TwitterApi> TWITTER = Suppliers.memoizeWithExpiration(
-            Suppliers.compose(creds -> new TwitterApi(client, creds), getFromKms("TWITTER_CREDS")),
+            Suppliers.compose(creds -> new TwitterApi(client, creds), getFromSsm("twitter_creds")),
             1, TimeUnit.HOURS);
     private static final OulipoLinkApi OULIPO_LINK = new OulipoLinkApi(client);
     private static final Supplier<MastodonApi> MASTODON = Suppliers.compose(
-            key -> new MastodonApi(client, System.getenv("MASTODON_SERVER"), key), getFromKms("MASTODON_TOKEN"));
+            key -> new MastodonApi(client, System.getenv("MASTODON_SERVER"), key), getFromSsm("mastodon_token"));
 
     @Override
     public State handleRequest(Object input, Context context) {
@@ -145,13 +144,11 @@ public class DrilipoFunc implements RequestHandler<Object, State> {
                 t.in_reply_to_status_id == null;
     }
 
-    private static Supplier<String> getFromKms(String name) {
+    private static Supplier<String> getFromSsm(String name) {
         return Suppliers.memoize(() -> {
-            byte[] encrypted = Base64.decode(System.getenv(name));
-            DecryptRequest request = new DecryptRequest()
-                    .withCiphertextBlob(ByteBuffer.wrap(encrypted));
-            ByteBuffer plainText = kms.decrypt(request).getPlaintext();
-            return new String(plainText.array(), Charsets.UTF_8);
+            GetParameterRequest req = new GetParameterRequest().withName("/drilipobot/" + name).withWithDecryption(true);
+            String encoded = ssm.getParameter(req).getParameter().getValue();
+            return new String(Base64.decode(encoded), StandardCharsets.UTF_8);
         });
     }
 }
