@@ -1,27 +1,25 @@
 package link.oulipo.drilipo;
 
-import com.amazonaws.regions.Regions;
 import com.amazonaws.services.lambda.runtime.Context;
 import com.amazonaws.services.lambda.runtime.RequestHandler;
-import com.amazonaws.services.s3.AmazonS3;
-import com.amazonaws.services.s3.AmazonS3ClientBuilder;
-import com.amazonaws.services.simplesystemsmanagement.AWSSimpleSystemsManagement;
-import com.amazonaws.services.simplesystemsmanagement.AWSSimpleSystemsManagementClientBuilder;
-import com.amazonaws.services.simplesystemsmanagement.model.GetParameterRequest;
-import com.amazonaws.services.sns.AmazonSNS;
-import com.amazonaws.services.sns.AmazonSNSClientBuilder;
-import com.amazonaws.util.Base64;
+
 import com.google.common.base.Supplier;
 import com.google.common.base.Suppliers;
 import com.google.common.collect.ImmutableList;
 import okhttp3.ConnectionSpec;
 import okhttp3.OkHttpClient;
 import okhttp3.Protocol;
+import okio.ByteString;
+import software.amazon.awssdk.regions.Region;
+import software.amazon.awssdk.services.s3.S3Client;
+import software.amazon.awssdk.services.sns.SnsClient;
+import software.amazon.awssdk.services.sns.model.PublishRequest;
+import software.amazon.awssdk.services.ssm.SsmClient;
+import software.amazon.awssdk.services.ssm.model.GetParameterRequest;
 
 import java.io.IOException;
 import java.io.PrintWriter;
 import java.io.StringWriter;
-import java.nio.charset.StandardCharsets;
 import java.time.ZoneId;
 import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
@@ -34,9 +32,9 @@ import java.util.function.Predicate;
 import java.util.stream.Collectors;
 
 public class DrilipoFunc implements RequestHandler<Object, State> {
-    private static final AmazonS3 s3 = AmazonS3ClientBuilder.standard().withRegion(Regions.US_WEST_1).build();
-    private static final AmazonSNS sns = AmazonSNSClientBuilder.standard().withRegion(Regions.US_WEST_1).build();
-    private static final AWSSimpleSystemsManagement ssm = AWSSimpleSystemsManagementClientBuilder.standard().withRegion(Regions.US_WEST_1).build();
+    private static final S3Client s3 = S3Client.builder().region(Region.US_WEST_1).build();
+    private static final SnsClient sns = SnsClient.builder().region(Region.US_WEST_1).build();
+    private static final SsmClient ssm = SsmClient.builder().region(Region.US_WEST_1).build();
     private static final OkHttpClient client = new OkHttpClient.Builder()
             .protocols(ImmutableList.of(Protocol.HTTP_2, Protocol.HTTP_1_1))
             .connectionSpecs(ImmutableList.of(ConnectionSpec.MODERN_TLS))
@@ -134,7 +132,12 @@ public class DrilipoFunc implements RequestHandler<Object, State> {
         String notifText = notifications.stream()
                 .map(n -> ZonedDateTime.ofInstant(n.created_at, est).format(dtf) + "\n" + n.summarize())
                 .collect(Collectors.joining("\n\n"));
-        sns.publish(System.getenv("NOTIFS_ARN"), notifText, "drilipo notifs");
+        PublishRequest publishRequest = PublishRequest.builder()
+                .topicArn(System.getenv("NOTIFS_ARN"))
+                .message(notifText)
+                .subject("drilipo notifs")
+                .build();
+        sns.publish(publishRequest);
     }
 
     private Predicate<Tweet> isInteresting() {
@@ -146,9 +149,9 @@ public class DrilipoFunc implements RequestHandler<Object, State> {
 
     private static Supplier<String> getFromSsm(String name) {
         return Suppliers.memoize(() -> {
-            GetParameterRequest req = new GetParameterRequest().withName("/drilipobot/" + name).withWithDecryption(true);
-            String encoded = ssm.getParameter(req).getParameter().getValue();
-            return new String(Base64.decode(encoded), StandardCharsets.UTF_8);
+            GetParameterRequest req = GetParameterRequest.builder().name("/drilipobot/" + name).withDecryption(true).build();
+            String encoded = ssm.getParameter(req).parameter().value();
+            return ByteString.decodeBase64(encoded).utf8();
         });
     }
 }

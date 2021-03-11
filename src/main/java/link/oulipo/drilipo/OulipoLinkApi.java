@@ -20,7 +20,7 @@ public class OulipoLinkApi {
         OLRequest olRequest = new OLRequest(urlLong);
         Request req = new Request.Builder()
                 .url("https://api.oulipo.link/create")
-                .post(RequestBody.create(Json.MIME_TYPE, Json.stringify(olRequest)))
+                .post(RequestBody.create(Json.stringify(olRequest), Json.MIME_TYPE))
                 .build();
 
         OLResponse olr = Json.parse(OLResponse.class, client, req);
