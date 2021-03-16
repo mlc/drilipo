@@ -50,23 +50,26 @@ public class Json {
     }
 
     public static <T> T parse(Class<T> klass, OkHttpClient client, Request request) throws IOException {
-        try (Response resp = client.newCall(request).execute()) {
-            if (!resp.isSuccessful())
-                throw new IOException(resp.code() + " " + resp.message());
-
-            JsonParser jp = Json.parser(resp.body().byteStream());
-            return jp.readValueAs(klass);
-        }
+        return parse(client, request, jp -> jp.readValueAs(klass));
     }
 
     public static <T> T parse(TypeReference<T> klass, OkHttpClient client, Request request) throws IOException {
+        return parse(client, request, jp -> jp.readValueAs(klass));
+    }
+
+    private static <T> T parse(OkHttpClient client, Request request, ValueReader<T> parser) throws IOException {
         try (Response resp = client.newCall(request).execute()) {
             if (!resp.isSuccessful())
                 throw new IOException(resp.code() + " " + resp.message());
 
             JsonParser jp = Json.parser(resp.body().byteStream());
-            return jp.readValueAs(klass);
+            return parser.readValue(jp);
         }
+    }
+
+    @FunctionalInterface
+    private interface ValueReader<T> {
+        T readValue(JsonParser jp) throws IOException;
     }
 
     static class OkHttpModule extends SimpleModule {

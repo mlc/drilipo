@@ -42,7 +42,7 @@ public class State {
                 .bucket(System.getenv("CONFIG_BUCKET"))
                 .key(System.getenv("CONFIG_KEY"))
                 .contentType(Json.MIME_TYPE.toString())
-        .cacheControl(new CacheControl.Builder().noCache().noStore().build().toString())
+                .cacheControl(new CacheControl.Builder().noCache().noStore().build().toString())
                 .contentLength(buffer.size())
                 .serverSideEncryption(ServerSideEncryption.AES256)
                 .build();
